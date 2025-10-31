@@ -1,0 +1,4 @@
+__pycache__
+.env
+NGINX_profile
+.DS_Store

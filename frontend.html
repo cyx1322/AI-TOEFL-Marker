@@ -1,0 +1,369 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>TOEFL Speaking Practice Feedback</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@picocss/pico@2.0.6/css/pico.min.css" />
+    <style>
+      body {
+        max-width: 960px;
+        margin: 0 auto;
+        padding: 2rem 1rem;
+      }
+      .file-input {
+        display: flex;
+        flex-direction: column;
+        gap: 0.5rem;
+        margin-bottom: 1.5rem;
+      }
+      .feedback-box {
+        background: #f8fafc;
+        color: #0f172a;
+        padding: 1.4rem 1.5rem;
+        border-radius: 1rem;
+        border: 1px solid #e2e8f0;
+        box-shadow: 0 18px 40px -24px rgba(15, 23, 42, 0.45);
+        line-height: 1.7;
+      }
+      @media (prefers-color-scheme: dark) {
+        .feedback-box {
+          background: #16213a;
+          border-color: #1f2b4d;
+          color: #e2e8f0;
+          box-shadow: 0 14px 34px -20px rgba(15, 23, 42, 0.6);
+        }
+      }
+      .feedback-box * { color: inherit; }
+      .feedback-box h1,
+      .feedback-box h2,
+      .feedback-box h3,
+      .feedback-box h4 {
+        margin: 0.6rem 0 0.4rem;
+        font-weight: 700;
+      }
+      .feedback-box p { margin: 0.5rem 0; }
+      .feedback-box strong { color: inherit; font-weight: 700; }
+      .feedback-box em { color: var(--fb-muted); }
+      .feedback-box a { color: #2563eb; text-decoration: underline; }
+      .feedback-box ul, .feedback-box ol { padding-left: 1.25rem; margin: 0.4rem 0; }
+      .feedback-box li { margin: 0.25rem 0; }
+      .feedback-box code { background: var(--fb-code-bg); padding: 0.1rem 0.35rem; border-radius: 4px; }
+      .feedback-box pre { background: var(--fb-code-bg); padding: 0.9rem; border-radius: 8px; overflow: auto; }
+      .feedback-box blockquote {
+        border-left: 4px solid var(--fb-border);
+        padding-left: 0.9rem;
+        color: var(--fb-muted);
+        margin: 0.6rem 0;
+      }
+      .status {
+        margin-top: 1rem;
+        min-height: 1.5rem;
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <h1>TOEFL Practice Feedback</h1>
+      <div id="root"></div>
+    </main>
+
+    <script src="https://unpkg.com/react@18/umd/react.development.js" crossorigin></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js" crossorigin></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <!-- Markdown renderer and sanitizer -->
+    <script src="https://unpkg.com/marked@12.0.2/marked.min.js"></script>
+    <script src="https://unpkg.com/dompurify@3.1.6/dist/purify.min.js"></script>
+
+    <script type="text/babel">
+      const { useState, useMemo } = React;
+
+      function App() {
+        // Speaking state
+        const [speakingQuestionText, setSpeakingQuestionText] = useState("");
+        const [questionAudio, setQuestionAudio] = useState(null);
+        const [answerAudio, setAnswerAudio] = useState(null);
+        const [speakingModel, setSpeakingModel] = useState("gemini-2.5-flash");
+        const [speakingSubmitting, setSpeakingSubmitting] = useState(false);
+        const [speakingStatus, setSpeakingStatus] = useState("");
+        const [speakingFeedback, setSpeakingFeedback] = useState(null);
+
+        // Writing state
+        const [writingQuestionText, setWritingQuestionText] = useState("");
+        const [writingAnswerText, setWritingAnswerText] = useState("");
+        const [writingModel, setWritingModel] = useState("gemini-2.5-flash");
+        const [writingSubmitting, setWritingSubmitting] = useState(false);
+        const [writingStatus, setWritingStatus] = useState("");
+        const [writingFeedback, setWritingFeedback] = useState(null);
+
+        const resetSpeakingFeedback = () => {
+          setSpeakingFeedback(null);
+          setSpeakingStatus("");
+        };
+
+        const resetWritingFeedback = () => {
+          setWritingFeedback(null);
+          setWritingStatus("");
+        };
+
+        const handleSpeakingSubmit = async (event) => {
+          event.preventDefault();
+          resetSpeakingFeedback();
+
+          if (!speakingQuestionText.trim()) {
+            setSpeakingStatus("Please paste the speaking question.");
+            return;
+          }
+
+          if (!answerAudio) {
+            setSpeakingStatus("Please upload your speaking answer audio.");
+            return;
+          }
+
+          const formData = new FormData();
+          formData.append("guidance_text", speakingQuestionText);
+          if (questionAudio) {
+            formData.append("audio_clip_one", questionAudio);
+          }
+          formData.append("audio_clip_two", answerAudio);
+          formData.append("model_choice", speakingModel);
+
+          try {
+            setSpeakingSubmitting(true);
+            setSpeakingStatus("Submitting audio for feedback...");
+
+            const response = await fetch("/speaking-feedback", {
+              method: "POST",
+              body: formData,
+            });
+
+            if (!response.ok) {
+              const errorBody = await response.json().catch(() => ({}));
+              const detail = errorBody.detail || "Unexpected server error.";
+              throw new Error(detail);
+            }
+
+            const result = await response.json();
+            setSpeakingFeedback(result);
+            setSpeakingStatus("Feedback received.");
+          } catch (error) {
+            setSpeakingStatus(error.message || "Failed to fetch feedback.");
+          } finally {
+            setSpeakingSubmitting(false);
+          }
+        };
+
+        const handleWritingSubmit = async (event) => {
+          event.preventDefault();
+          resetWritingFeedback();
+
+          if (!writingQuestionText.trim()) {
+            setWritingStatus("Please enter the writing task question.");
+            return;
+          }
+
+          if (!writingAnswerText.trim()) {
+            setWritingStatus("Please enter the student's response.");
+            return;
+          }
+
+          const formData = new FormData();
+          formData.append("question_text", writingQuestionText);
+          formData.append("answer_text", writingAnswerText);
+          formData.append("model_choice", writingModel);
+
+          try {
+            setWritingSubmitting(true);
+            setWritingStatus("Submitting writing for feedback...");
+
+            const response = await fetch("/writing-feedback", {
+              method: "POST",
+              body: formData,
+            });
+
+            if (!response.ok) {
+              const errorBody = await response.json().catch(() => ({}));
+              const detail = errorBody.detail || "Unexpected server error.";
+              throw new Error(detail);
+            }
+
+            const result = await response.json();
+            setWritingFeedback(result);
+            setWritingStatus("Feedback received.");
+          } catch (error) {
+            setWritingStatus(error.message || "Failed to fetch feedback.");
+          } finally {
+            setWritingSubmitting(false);
+          }
+        };
+
+        const speakingFeedbackHtml = useMemo(() => {
+          if (!speakingFeedback || !speakingFeedback.feedback) return "";
+          try {
+            const raw = window.marked.parse(speakingFeedback.feedback);
+            return window.DOMPurify.sanitize(raw);
+          } catch (e) {
+            return window.DOMPurify.sanitize(String(speakingFeedback.feedback));
+          }
+        }, [speakingFeedback]);
+
+        const writingFeedbackHtml = useMemo(() => {
+          if (!writingFeedback || !writingFeedback.feedback) return "";
+          try {
+            const raw = window.marked.parse(writingFeedback.feedback);
+            return window.DOMPurify.sanitize(raw);
+          } catch (e) {
+            return window.DOMPurify.sanitize(String(writingFeedback.feedback));
+          }
+        }, [writingFeedback]);
+
+        return (
+          <section className="grid" style={{ gridTemplateColumns: "1fr", gap: "2.5rem" }}>
+            <article>
+              <h2>Speaking Task Feedback</h2>
+              <form onSubmit={handleSpeakingSubmit}>
+                <label>
+                  Speaking Question
+                  <textarea
+                    value={speakingQuestionText}
+                    onChange={(event) => {
+                      setSpeakingQuestionText(event.target.value);
+                      resetSpeakingFeedback();
+                    }}
+                    placeholder="Paste the TOEFL speaking question or prompt here..."
+                    rows={5}
+                    required
+                  />
+                </label>
+
+                <label>
+                  Model
+                  <select
+                    value={speakingModel}
+                    onChange={(event) => {
+                      setSpeakingModel(event.target.value);
+                      resetSpeakingFeedback();
+                    }}
+                  >
+                    <option value="gemini-2.5-flash">Gemini 2.5 Flash</option>
+                    <option value="gemini-2.5-pro">Gemini 2.5 Pro</option>
+                  </select>
+                </label>
+
+                <div className="grid">
+                  <label className="file-input">
+                    Question Audio (optional)
+                    <input
+                      type="file"
+                      accept="audio/*"
+                      onChange={(event) => {
+                        const file = event.target.files?.[0] || null;
+                        setQuestionAudio(file);
+                        resetSpeakingFeedback();
+                      }}
+                    />
+                    {questionAudio && <small>Selected: {questionAudio.name}</small>}
+                  </label>
+
+                  <label className="file-input">
+                    Your Answer Audio
+                    <input
+                      type="file"
+                      accept="audio/*"
+                      onChange={(event) => {
+                        const file = event.target.files?.[0] || null;
+                        setAnswerAudio(file);
+                        resetSpeakingFeedback();
+                      }}
+                      required
+                    />
+                    {answerAudio && <small>Selected: {answerAudio.name}</small>}
+                  </label>
+                </div>
+
+                <button type="submit" disabled={speakingSubmitting}>
+                  {speakingSubmitting ? "Submitting..." : "Get Feedback"}
+                </button>
+              </form>
+
+              <p className="status">{speakingStatus}</p>
+
+              {speakingFeedback && (
+                <section>
+                  <h3>Feedback</h3>
+                  <div className="feedback-box" dangerouslySetInnerHTML={{ __html: speakingFeedbackHtml }} />
+                  <p>
+                    <strong>Clips processed:</strong> {speakingFeedback.clips_received}
+                  </p>
+                </section>
+              )}
+            </article>
+
+            <article>
+              <h2>Writing Task Feedback</h2>
+              <form onSubmit={handleWritingSubmit}>
+                <label>
+                  Writing Question
+                  <textarea
+                    value={writingQuestionText}
+                    onChange={(event) => {
+                      setWritingQuestionText(event.target.value);
+                      resetWritingFeedback();
+                    }}
+                    placeholder="Paste the TOEFL writing task question..."
+                    rows={4}
+                    required
+                  />
+                </label>
+
+                <label>
+                  Student Response
+                  <textarea
+                    value={writingAnswerText}
+                    onChange={(event) => {
+                      setWritingAnswerText(event.target.value);
+                      resetWritingFeedback();
+                    }}
+                    placeholder="Paste the student's writing response..."
+                    rows={8}
+                    required
+                  />
+                </label>
+
+                <label>
+                  Model
+                  <select
+                    value={writingModel}
+                    onChange={(event) => {
+                      setWritingModel(event.target.value);
+                      resetWritingFeedback();
+                    }}
+                  >
+                    <option value="gemini-2.5-flash">Gemini 2.5 Flash</option>
+                    <option value="gemini-2.5-pro">Gemini 2.5 Pro</option>
+                  </select>
+                </label>
+
+                <button type="submit" disabled={writingSubmitting}>
+                  {writingSubmitting ? "Submitting..." : "Get Feedback"}
+                </button>
+              </form>
+
+              <p className="status">{writingStatus}</p>
+
+              {writingFeedback && (
+                <section>
+                  <h3>Feedback</h3>
+                  <div className="feedback-box" dangerouslySetInnerHTML={{ __html: writingFeedbackHtml }} />
+                </section>
+              )}
+            </article>
+          </section>
+        );
+      }
+
+      const root = ReactDOM.createRoot(document.getElementById("root"));
+      root.render(<App />);
+    </script>
+  </body>
+</html>
