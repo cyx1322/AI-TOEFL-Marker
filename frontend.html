@@ -2,14 +2,228 @@
 <html lang="en">
   <head>
     <meta charset="utf-8" />
-    <title>TOEFL Speaking Practice Feedback</title>
+    <title>TOEFL Practice Feedback</title>
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@picocss/pico@2.0.6/css/pico.min.css" />
     <style>
+      html {
+        background: #eef2ff;
+      }
+      @media (prefers-color-scheme: dark) {
+        html { background: #020617; }
+      }
+      html,
       body {
-        max-width: 960px;
+        min-height: 100%;
+      }
+      body {
+        max-width: 1100px;
         margin: 0 auto;
-        padding: 2rem 1rem;
+        padding: 3rem 1.5rem;
+        font-family: "Inter", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        position: relative;
+        z-index: 0;
+      }
+      body::before {
+        content: "";
+        position: fixed;
+        inset: 0;
+        z-index: -2;
+        background:
+          radial-gradient(1200px circle at 20% 10%, rgba(59, 130, 246, 0.15), transparent 55%),
+          radial-gradient(900px circle at 80% 0%, rgba(124, 58, 237, 0.12), transparent 60%),
+          linear-gradient(180deg, #f8fafc 0%, #eef2ff 40%, #e0f2fe 100%);
+      }
+      body::after {
+        content: "";
+        position: fixed;
+        inset: 0;
+        z-index: -1;
+        background: linear-gradient(120deg, rgba(255, 255, 255, 0.85), rgba(255, 255, 255, 0.6));
+        backdrop-filter: blur(2px);
+      }
+      @media (prefers-color-scheme: dark) {
+        body::before {
+          background:
+            radial-gradient(1200px circle at 15% 20%, rgba(56, 189, 248, 0.18), transparent 55%),
+            radial-gradient(900px circle at 85% 5%, rgba(129, 140, 248, 0.2), transparent 60%),
+            linear-gradient(180deg, #020617 0%, #0f172a 45%, #1e1b4b 100%);
+        }
+        body::after {
+          background: linear-gradient(120deg, rgba(15, 23, 42, 0.85), rgba(15, 23, 42, 0.65));
+        }
+      }
+      main {
+        display: flex;
+        justify-content: center;
+      }
+      .app-shell {
+        width: 100%;
+        display: flex;
+        flex-direction: column;
+        gap: 1.75rem;
+      }
+      .page-header {
+        display: flex;
+        flex-direction: column;
+        gap: 0.4rem;
+        text-align: center;
+      }
+      .page-header h1 {
+        margin: 0;
+        font-size: clamp(2rem, 4vw, 2.6rem);
+        color: #111827;
+      }
+      .page-subtitle {
+        margin: 0;
+        color: #4b5563;
+      }
+      @media (prefers-color-scheme: dark) {
+        .page-header h1 { color: #e2e8f0; }
+        .page-subtitle { color: #94a3b8; }
+      }
+      .tool-nav {
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: center;
+        gap: 0.75rem;
+      }
+      .tool-tab {
+        padding: 0.7rem 1.8rem;
+        border-radius: 999px;
+        border: 1px solid rgba(15, 23, 42, 0.1);
+        background: white;
+        color: #0f172a;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.2s ease;
+      }
+      .tool-tab .tab-emoji {
+        margin-right: 0.45rem;
+        font-size: 1.1rem;
+      }
+      .tool-tab:hover { box-shadow: 0 10px 18px -14px rgba(15, 23, 42, 0.6); }
+      .tool-tab.active {
+        background: linear-gradient(135deg, #2563eb, #7c3aed);
+        color: white;
+        border-color: transparent;
+        box-shadow: 0 12px 24px -16px rgba(59, 130, 246, 0.8);
+      }
+      @media (prefers-color-scheme: dark) {
+        .tool-tab { background: #1e293b; color: #e2e8f0; border-color: rgba(148, 163, 184, 0.4); }
+        .tool-tab:hover { box-shadow: 0 10px 18px -14px rgba(79, 70, 229, 0.6); }
+      }
+      .tool-body {
+        display: flex;
+        justify-content: center;
+      }
+      .tool-panel {
+        width: min(1000px, 100%);
+        background: #ffffff;
+        border-radius: 1.25rem;
+        padding: clamp(1.5rem, 2vw + 1rem, 2.5rem);
+        border: 1px solid rgba(15, 23, 42, 0.08);
+        box-shadow: 0 28px 60px -40px rgba(15, 23, 42, 0.55);
+        display: flex;
+        flex-direction: column;
+        gap: 1.5rem;
+      }
+      @media (prefers-color-scheme: dark) {
+        .tool-panel {
+          background: #0b1120;
+          border-color: #1f2937;
+          box-shadow: 0 28px 60px -40px rgba(79, 70, 229, 0.55);
+        }
+      }
+      .tool-panel h2 {
+        margin: 0;
+        font-size: 1.65rem;
+        color: #111827;
+      }
+      .tool-panel h3 {
+        margin: 0;
+        font-size: 1.35rem;
+        color: #111827;
+      }
+      @media (prefers-color-scheme: dark) {
+        .tool-panel h2,
+        .tool-panel h3 { color: #e2e8f0; }
+      }
+      .tool-description {
+        margin: 0;
+        color: #4b5563;
+      }
+      @media (prefers-color-scheme: dark) {
+        .tool-description { color: #94a3b8; }
+      }
+      .form-grid {
+        display: grid;
+        gap: 1.2rem;
+      }
+      .form-grid.two-column {
+        grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+        gap: 1.2rem;
+      }
+      label > span.label-heading {
+        display: block;
+        font-weight: 600;
+        margin-bottom: 0.45rem;
+        color: #0f172a;
+      }
+      @media (prefers-color-scheme: dark) {
+        label > span.label-heading { color: #e2e8f0; }
+      }
+      .model-select {
+        display: flex;
+        gap: 0.75rem;
+        flex-wrap: wrap;
+      }
+      .model-pill {
+        position: relative;
+        display: flex;
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 0.2rem;
+        padding: 0.75rem 1.2rem;
+        min-width: 200px;
+        border-radius: 1rem;
+        border: 1px solid rgba(15, 23, 42, 0.12);
+        background: rgba(255, 255, 255, 0.85);
+        cursor: pointer;
+        transition: transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease;
+      }
+      .model-pill:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 16px 24px -22px rgba(15, 23, 42, 0.55);
+        border-color: rgba(37, 99, 235, 0.45);
+      }
+      .model-pill.active {
+        border-color: transparent;
+        background: linear-gradient(135deg, rgba(59, 130, 246, 0.16), rgba(124, 58, 237, 0.16));
+        box-shadow: inset 0 0 0 1.5px rgba(59, 130, 246, 0.65), 0 18px 36px -24px rgba(59, 130, 246, 0.6);
+      }
+      .model-pill strong {
+        font-size: 0.95rem;
+      }
+      .model-pill span {
+        font-size: 0.8rem;
+        color: #4b5563;
+      }
+      .model-radio {
+        position: absolute;
+        opacity: 0;
+        pointer-events: none;
+      }
+      @media (prefers-color-scheme: dark) {
+        .model-pill {
+          border-color: rgba(148, 163, 184, 0.25);
+          background: rgba(15, 23, 42, 0.65);
+        }
+        .model-pill span { color: #cbd5f5; }
+        .model-pill.active {
+          background: linear-gradient(135deg, rgba(37, 99, 235, 0.28), rgba(124, 58, 237, 0.28));
+          box-shadow: inset 0 0 0 1.5px rgba(129, 140, 248, 0.55), 0 16px 32px -22px rgba(79, 70, 229, 0.65);
+        }
       }
       .file-input {
         display: flex;
@@ -44,27 +258,41 @@
       }
       .feedback-box p { margin: 0.5rem 0; }
       .feedback-box strong { color: inherit; font-weight: 700; }
-      .feedback-box em { color: var(--fb-muted); }
+      .feedback-box em { color: #475569; }
       .feedback-box a { color: #2563eb; text-decoration: underline; }
       .feedback-box ul, .feedback-box ol { padding-left: 1.25rem; margin: 0.4rem 0; }
       .feedback-box li { margin: 0.25rem 0; }
-      .feedback-box code { background: var(--fb-code-bg); padding: 0.1rem 0.35rem; border-radius: 4px; }
-      .feedback-box pre { background: var(--fb-code-bg); padding: 0.9rem; border-radius: 8px; overflow: auto; }
+      .feedback-box code { background: rgba(15, 23, 42, 0.08); padding: 0.1rem 0.35rem; border-radius: 4px; }
+      .feedback-box pre { background: rgba(15, 23, 42, 0.08); padding: 0.9rem; border-radius: 8px; overflow: auto; }
       .feedback-box blockquote {
-        border-left: 4px solid var(--fb-border);
+        border-left: 4px solid rgba(148, 163, 184, 0.4);
         padding-left: 0.9rem;
-        color: var(--fb-muted);
+        color: #64748b;
         margin: 0.6rem 0;
       }
-      .status {
-        margin-top: 1rem;
+      @media (prefers-color-scheme: dark) {
+        .feedback-box em { color: #cbd5f5; }
+        .feedback-box code,
+        .feedback-box pre {
+          background: rgba(148, 163, 184, 0.2);
+        }
+        .feedback-box blockquote {
+          border-left-color: rgba(94, 234, 212, 0.25);
+          color: #cbd5f5;
+        }
+      }
+      .status-line {
         min-height: 1.5rem;
+        font-weight: 500;
+        color: #2563eb;
+      }
+      @media (prefers-color-scheme: dark) {
+        .status-line { color: #38bdf8; }
       }
     </style>
   </head>
   <body>
     <main>
-      <h1>TOEFL Practice Feedback</h1>
       <div id="root"></div>
     </main>
 
@@ -79,6 +307,39 @@
       const { useState, useMemo } = React;
 
       function App() {
+        const toolOptions = [
+          { id: "speaking", label: "Speaking Feedback", emoji: "🎙️", description: "Grade recorded speaking responses with TOEFL-aligned rubrics." },
+          { id: "writing", label: "Writing Feedback", emoji: "✍️", description: "Review TOEFL writing responses and surface rubric-based insights." }
+        ];
+        const modelOptions = [
+          { value: "gemini-2.5-flash", title: "Gemini 2.5 Flash", note: "Fastest responses, ideal for rapid practice." },
+          { value: "gemini-2.5-pro", title: "Gemini 2.5 Pro", note: "Most intelligent and detailed, for accurate scoring." }
+        ];
+
+        const ModelSelect = ({ value, onChange, name }) => (
+          <div className="model-select" role="radiogroup" aria-label="Gemini model">
+            {modelOptions.map((option) => (
+              <label
+                key={option.value}
+                className={`model-pill ${value === option.value ? "active" : ""}`}
+              >
+                <input
+                  type="radio"
+                  name={name}
+                  value={option.value}
+                  className="model-radio"
+                  checked={value === option.value}
+                  onChange={() => onChange(option.value)}
+                />
+                <strong>{option.title}</strong>
+                <span>{option.note}</span>
+              </label>
+            ))}
+          </div>
+        );
+
+        const [activeTool, setActiveTool] = useState("speaking");
+
         // Speaking state
         const [speakingQuestionText, setSpeakingQuestionText] = useState("");
         const [questionAudio, setQuestionAudio] = useState(null);
@@ -217,148 +478,191 @@
           }
         }, [writingFeedback]);
 
+        const renderSpeakingPanel = () => (
+          <article className="tool-panel">
+            <div>
+              <h2>Speaking Feedback</h2>
+              <p className="tool-description">
+                Upload the TOEFL speaking prompt and up to two audio clips (question + response) to receive rubric-aligned notes.
+              </p>
+            </div>
+
+            <form className="form-grid" onSubmit={handleSpeakingSubmit}>
+              <label>
+                <span className="label-heading">Speaking Question</span>
+                <textarea
+                  value={speakingQuestionText}
+                  onChange={(event) => {
+                    setSpeakingQuestionText(event.target.value);
+                    resetSpeakingFeedback();
+                  }}
+                  placeholder="Paste the TOEFL speaking question or prompt here..."
+                  rows={5}
+                  required
+                />
+              </label>
+
+              <div>
+                <span className="label-heading">Model</span>
+                <ModelSelect
+                  name="speaking-model"
+                  value={speakingModel}
+                  onChange={(newValue) => {
+                    setSpeakingModel(newValue);
+                    resetSpeakingFeedback();
+                  }}
+                />
+              </div>
+
+              <div className="form-grid two-column">
+                <label className="file-input">
+                  <span className="label-heading">Question Audio (optional)</span>
+                  <input
+                    type="file"
+                    accept="audio/*"
+                    onChange={(event) => {
+                      const file = event.target.files?.[0] || null;
+                      setQuestionAudio(file);
+                      resetSpeakingFeedback();
+                    }}
+                  />
+                  {questionAudio && <small>Selected: {questionAudio.name}</small>}
+                </label>
+
+                <label className="file-input">
+                  <span className="label-heading">Your Answer Audio</span>
+                  <input
+                    type="file"
+                    accept="audio/*"
+                    onChange={(event) => {
+                      const file = event.target.files?.[0] || null;
+                      setAnswerAudio(file);
+                      resetSpeakingFeedback();
+                    }}
+                    required
+                  />
+                  {answerAudio && <small>Selected: {answerAudio.name}</small>}
+                </label>
+              </div>
+
+              <button type="submit" disabled={speakingSubmitting}>
+                {speakingSubmitting ? "Submitting..." : "Get Feedback"}
+              </button>
+            </form>
+
+            <div className="status-line">{speakingStatus}</div>
+
+            {speakingFeedback && (
+              <section>
+                <h3>Feedback</h3>
+                <div className="feedback-box" dangerouslySetInnerHTML={{ __html: speakingFeedbackHtml }} />
+                <p>
+                  <strong>Clips processed:</strong> {speakingFeedback.clips_received}
+                </p>
+              </section>
+            )}
+          </article>
+        );
+
+        const renderWritingPanel = () => (
+          <article className="tool-panel">
+            <div>
+              <h2>Writing Feedback</h2>
+              <p className="tool-description">
+                Paste the TOEFL writing task question and the student's response to receive rubric-based feedback and suggestions.
+              </p>
+            </div>
+
+            <form className="form-grid" onSubmit={handleWritingSubmit}>
+              <label>
+                <span className="label-heading">Writing Question</span>
+                <textarea
+                  value={writingQuestionText}
+                  onChange={(event) => {
+                    setWritingQuestionText(event.target.value);
+                    resetWritingFeedback();
+                  }}
+                  placeholder="Paste the TOEFL writing task question..."
+                  rows={4}
+                  required
+                />
+              </label>
+
+              <label>
+                <span className="label-heading">Student Response</span>
+                <textarea
+                  value={writingAnswerText}
+                  onChange={(event) => {
+                    setWritingAnswerText(event.target.value);
+                    resetWritingFeedback();
+                  }}
+                  placeholder="Paste the student's writing response..."
+                  rows={8}
+                  required
+                />
+              </label>
+
+              <div>
+                <span className="label-heading">Model</span>
+                <ModelSelect
+                  name="writing-model"
+                  value={writingModel}
+                  onChange={(newValue) => {
+                    setWritingModel(newValue);
+                    resetWritingFeedback();
+                  }}
+                />
+              </div>
+
+              <button type="submit" disabled={writingSubmitting}>
+                {writingSubmitting ? "Submitting..." : "Get Feedback"}
+              </button>
+            </form>
+
+            <div className="status-line">{writingStatus}</div>
+
+            {writingFeedback && (
+              <section>
+                <h3>Feedback</h3>
+                <div className="feedback-box" dangerouslySetInnerHTML={{ __html: writingFeedbackHtml }} />
+              </section>
+            )}
+          </article>
+        );
+
+        const activeSummary = toolOptions.find((tool) => tool.id === activeTool);
+
         return (
-          <section className="grid" style={{ gridTemplateColumns: "1fr", gap: "2.5rem" }}>
-            <article>
-              <h2>Speaking Task Feedback</h2>
-              <form onSubmit={handleSpeakingSubmit}>
-                <label>
-                  Speaking Question
-                  <textarea
-                    value={speakingQuestionText}
-                    onChange={(event) => {
-                      setSpeakingQuestionText(event.target.value);
-                      resetSpeakingFeedback();
-                    }}
-                    placeholder="Paste the TOEFL speaking question or prompt here..."
-                    rows={5}
-                    required
-                  />
-                </label>
+          <div className="app-shell">
+            <header className="page-header">
+              <h1>TOEFL Practice Feedback</h1>
+              <p className="page-subtitle">Choose a tool to analyse speaking or writing responses with Gemini.</p>
+            </header>
 
-                <label>
-                  Model
-                  <select
-                    value={speakingModel}
-                    onChange={(event) => {
-                      setSpeakingModel(event.target.value);
-                      resetSpeakingFeedback();
-                    }}
-                  >
-                    <option value="gemini-2.5-flash">Gemini 2.5 Flash</option>
-                    <option value="gemini-2.5-pro">Gemini 2.5 Pro</option>
-                  </select>
-                </label>
-
-                <div className="grid">
-                  <label className="file-input">
-                    Question Audio (optional)
-                    <input
-                      type="file"
-                      accept="audio/*"
-                      onChange={(event) => {
-                        const file = event.target.files?.[0] || null;
-                        setQuestionAudio(file);
-                        resetSpeakingFeedback();
-                      }}
-                    />
-                    {questionAudio && <small>Selected: {questionAudio.name}</small>}
-                  </label>
-
-                  <label className="file-input">
-                    Your Answer Audio
-                    <input
-                      type="file"
-                      accept="audio/*"
-                      onChange={(event) => {
-                        const file = event.target.files?.[0] || null;
-                        setAnswerAudio(file);
-                        resetSpeakingFeedback();
-                      }}
-                      required
-                    />
-                    {answerAudio && <small>Selected: {answerAudio.name}</small>}
-                  </label>
-                </div>
-
-                <button type="submit" disabled={speakingSubmitting}>
-                  {speakingSubmitting ? "Submitting..." : "Get Feedback"}
+            <nav className="tool-nav">
+              {toolOptions.map((option) => (
+                <button
+                  type="button"
+                  key={option.id}
+                  className={`tool-tab ${activeTool === option.id ? "active" : ""}`}
+                  onClick={() => setActiveTool(option.id)}
+                >
+                  <span className="tab-emoji" aria-hidden="true">{option.emoji}</span>
+                  {option.label}
                 </button>
-              </form>
+              ))}
+            </nav>
 
-              <p className="status">{speakingStatus}</p>
+            {activeSummary && (
+              <p className="tool-description" style={{ textAlign: "center" }}>
+                {activeSummary.description}
+              </p>
+            )}
 
-              {speakingFeedback && (
-                <section>
-                  <h3>Feedback</h3>
-                  <div className="feedback-box" dangerouslySetInnerHTML={{ __html: speakingFeedbackHtml }} />
-                  <p>
-                    <strong>Clips processed:</strong> {speakingFeedback.clips_received}
-                  </p>
-                </section>
-              )}
-            </article>
-
-            <article>
-              <h2>Writing Task Feedback</h2>
-              <form onSubmit={handleWritingSubmit}>
-                <label>
-                  Writing Question
-                  <textarea
-                    value={writingQuestionText}
-                    onChange={(event) => {
-                      setWritingQuestionText(event.target.value);
-                      resetWritingFeedback();
-                    }}
-                    placeholder="Paste the TOEFL writing task question..."
-                    rows={4}
-                    required
-                  />
-                </label>
-
-                <label>
-                  Student Response
-                  <textarea
-                    value={writingAnswerText}
-                    onChange={(event) => {
-                      setWritingAnswerText(event.target.value);
-                      resetWritingFeedback();
-                    }}
-                    placeholder="Paste the student's writing response..."
-                    rows={8}
-                    required
-                  />
-                </label>
-
-                <label>
-                  Model
-                  <select
-                    value={writingModel}
-                    onChange={(event) => {
-                      setWritingModel(event.target.value);
-                      resetWritingFeedback();
-                    }}
-                  >
-                    <option value="gemini-2.5-flash">Gemini 2.5 Flash</option>
-                    <option value="gemini-2.5-pro">Gemini 2.5 Pro</option>
-                  </select>
-                </label>
-
-                <button type="submit" disabled={writingSubmitting}>
-                  {writingSubmitting ? "Submitting..." : "Get Feedback"}
-                </button>
-              </form>
-
-              <p className="status">{writingStatus}</p>
-
-              {writingFeedback && (
-                <section>
-                  <h3>Feedback</h3>
-                  <div className="feedback-box" dangerouslySetInnerHTML={{ __html: writingFeedbackHtml }} />
-                </section>
-              )}
-            </article>
-          </section>
+            <div className="tool-body">
+              {activeTool === "speaking" ? renderSpeakingPanel() : renderWritingPanel()}
+            </div>
+          </div>
         );
       }
 
