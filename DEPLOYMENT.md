@@ -21,7 +21,7 @@ sudo ss -lptn 'sport = :8000'
 
 ## 2. Application Setup
 
-1. Copy project files (`api.py`, `gemini_utils.py`, `frontend.html`, etc.) into `/opt/ai-toefl`.
+1. Copy project files (`api.py`, `gemini_utils.py`, `index.html`, etc.) into `/opt/ai-toefl`.
 2. Create and activate a virtual environment:
    ```bash
    cd /opt/ai-toefl
@@ -89,7 +89,7 @@ Copy the frontend HTML into a static location:
 
 ```bash
 sudo mkdir -p /var/www/ai-toefl
-sudo cp /opt/ai-toefl/frontend.html /var/www/ai-toefl/
+sudo cp /opt/ai-toefl/index.html /var/www/ai-toefl/
 sudo chown -R www-data:www-data /var/www/ai-toefl
 ```
 
@@ -125,10 +125,10 @@ server {
     client_max_body_size 25m;
 
     root /var/www/ai-toefl;
-    index frontend.html;
+    index index.html;
 
     location / {
-        try_files $uri /frontend.html;
+        try_files $uri /index.html;
     }
 
     location /speaking-feedback {
@@ -164,7 +164,7 @@ EOF'
 Enable the site:
 
 ```bash
-sudo ln -s /etc/nginx/sites-available/ai-toefl /etc/nginx/sites-enabled/
+sudo ln -s /etc/nginx/sites-available/toefl-ai /etc/nginx/sites-enabled/
 sudo nginx -t
 sudo systemctl reload nginx
 ```
@@ -203,7 +203,7 @@ Certbot installs a timer for auto-renewal (`systemctl status certbot.timer`).
    source /opt/ai-toefl/.venv/bin/activate
    pip install -r requirements.txt  # if you create one
    ```
-3. Copy updated `frontend.html` to `/var/www/ai-toefl/`.
+3. Copy updated `index.html` to `/var/www/ai-toefl/`.
 4. Restart services:
    ```bash
    sudo systemctl restart ai-toefl
@@ -213,7 +213,7 @@ Certbot installs a timer for auto-renewal (`systemctl status certbot.timer`).
 ## 8. Troubleshooting
 
 - **502 Bad Gateway**: Gunicorn not running or crashed. Check `journalctl -u ai-toefl`.
-- **404 Not Found**: Confirm `frontend.html` exists under `/var/www/ai-toefl` and the NGINX site is enabled.
+- **404 Not Found**: Confirm `index.html` exists under `/var/www/ai-toefl` and the NGINX site is enabled.
 - **Large uploads rejected**: Increase `client_max_body_size` in NGINX and ensure FastAPI can handle the size.
 - **Permission denied on static files**: Ensure `www-data` owns `/var/www/ai-toefl`.
 - **Stale TLS certs**: Run `sudo certbot renew --dry-run` to validate automation.

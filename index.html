@@ -281,6 +281,52 @@
           color: #cbd5f5;
         }
       }
+      .thoughts-box {
+        margin: 1rem 0 1.25rem;
+        border: 1px dashed rgba(59, 130, 246, 0.4);
+        border-radius: 0.9rem;
+        padding: 0.8rem 1rem;
+        background: rgba(59, 130, 246, 0.06);
+      }
+      .thoughts-box summary {
+        cursor: pointer;
+        font-weight: 600;
+        color: #2563eb;
+        outline: none;
+        list-style: none;
+      }
+      .thoughts-box summary::-webkit-details-marker {
+        display: none;
+      }
+      .thoughts-box summary::after {
+        content: " ▼";
+        font-size: 0.8rem;
+      }
+      .thoughts-box[open] summary::after {
+        content: " ▲";
+      }
+      .thoughts-box[open] summary {
+        margin-bottom: 0.5rem;
+      }
+      .thoughts-box pre {
+        margin: 0;
+        white-space: pre-wrap;
+        font-family: inherit;
+        font-size: 0.9rem;
+        color: #1e293b;
+      }
+      @media (prefers-color-scheme: dark) {
+        .thoughts-box {
+          border-color: rgba(129, 140, 248, 0.45);
+          background: rgba(79, 70, 229, 0.12);
+        }
+        .thoughts-box summary {
+          color: #a5b4fc;
+        }
+        .thoughts-box pre {
+          color: #e2e8f0;
+        }
+      }
       .status-line {
         min-height: 1.5rem;
         font-weight: 500;
@@ -348,6 +394,7 @@
         const [speakingSubmitting, setSpeakingSubmitting] = useState(false);
         const [speakingStatus, setSpeakingStatus] = useState("");
         const [speakingFeedback, setSpeakingFeedback] = useState(null);
+        const [speakingImprovementsVisible, setSpeakingImprovementsVisible] = useState(false);
 
         // Writing state
         const [writingQuestionText, setWritingQuestionText] = useState("");
@@ -356,15 +403,35 @@
         const [writingSubmitting, setWritingSubmitting] = useState(false);
         const [writingStatus, setWritingStatus] = useState("");
         const [writingFeedback, setWritingFeedback] = useState(null);
+        const [writingImprovementsVisible, setWritingImprovementsVisible] = useState(false);
+
+        const createSpeakingBase = () => ({
+          answerMarkdown: "",
+          improvementsMarkdown: "",
+          thoughts: "",
+          clipsReceived: null,
+          done: false,
+          improvementsReady: false,
+        });
+
+        const createWritingBase = () => ({
+          answerMarkdown: "",
+          improvementsMarkdown: "",
+          thoughts: "",
+          done: false,
+          improvementsReady: false,
+        });
 
         const resetSpeakingFeedback = () => {
           setSpeakingFeedback(null);
           setSpeakingStatus("");
+          setSpeakingImprovementsVisible(false);
         };
 
         const resetWritingFeedback = () => {
           setWritingFeedback(null);
           setWritingStatus("");
+          setWritingImprovementsVisible(false);
         };
 
         const handleSpeakingSubmit = async (event) => {
@@ -377,21 +444,35 @@
           }
 
           if (!answerAudio) {
-            setSpeakingStatus("Please upload your speaking answer audio.");
+            setSpeakingStatus("Please upload your speaking response audio.");
             return;
           }
 
           const formData = new FormData();
           formData.append("guidance_text", speakingQuestionText);
           if (questionAudio) {
-            formData.append("audio_clip_one", questionAudio);
+            formData.append("prompt_audio", questionAudio);
           }
-          formData.append("audio_clip_two", answerAudio);
+          formData.append("response_audio", answerAudio);
           formData.append("model_choice", speakingModel);
+
+          let reader;
+          let hasError = false;
+          let feedbackMarkdownBuffer = "";
+
+          const applySpeakingUpdate = (updater) => {
+            setSpeakingFeedback((prev) => {
+              const base = prev ?? createSpeakingBase();
+              if (typeof updater === "function") {
+                return updater(base);
+              }
+              return { ...base, ...updater };
+            });
+          };
 
           try {
             setSpeakingSubmitting(true);
-            setSpeakingStatus("Submitting audio for feedback...");
+            setSpeakingStatus("Thinking...");
 
             const response = await fetch("/speaking-feedback", {
               method: "POST",
@@ -404,11 +485,169 @@
               throw new Error(detail);
             }
 
-            const result = await response.json();
-            setSpeakingFeedback(result);
-            setSpeakingStatus("Feedback received.");
+            if (!response.body) {
+              throw new Error("Streaming is not supported in this browser.");
+            }
+
+            applySpeakingUpdate(createSpeakingBase());
+
+            reader = response.body.getReader();
+            const decoder = new TextDecoder();
+            let buffer = "";
+            let stop = false;
+
+            const handlePayload = (payload) => {
+              if (!payload || !payload.type) return false;
+              switch (payload.type) {
+                case "meta":
+                  applySpeakingUpdate((prev) => ({
+                    ...prev,
+                    clipsReceived: payload.clips_received ?? null,
+                  }));
+                  return false;
+                case "thoughts":
+                  applySpeakingUpdate((prev) => ({
+                    ...prev,
+                    thoughts: payload.text || "",
+                  }));
+                  return false;
+                case "answer": {
+                  const text = payload.text || "";
+                  feedbackMarkdownBuffer += text;
+                  applySpeakingUpdate((prev) => ({
+                    ...prev,
+                    answerMarkdown: (prev.answerMarkdown || "") + text,
+                  }));
+                  setSpeakingStatus("Generating feedback...");
+                  return false;
+                }
+                case "error":
+                  hasError = true;
+                  setSpeakingStatus(payload.message || "Failed to fetch feedback.");
+                  return true;
+                case "done":
+                  return true;
+                default:
+                  return false;
+              }
+            };
+
+            while (!stop) {
+              const { value, done } = await reader.read();
+              if (done) {
+                buffer += decoder.decode();
+                break;
+              }
+              buffer += decoder.decode(value, { stream: true });
+
+              let newlineIndex = buffer.indexOf("\n");
+              while (newlineIndex !== -1) {
+                const line = buffer.slice(0, newlineIndex).trim();
+                buffer = buffer.slice(newlineIndex + 1);
+                if (line) {
+                  let payload;
+                  try {
+                    payload = JSON.parse(line);
+                  } catch {
+                    payload = null;
+                  }
+                  if (payload) {
+                    stop = handlePayload(payload) || stop;
+                    if (stop) break;
+                  }
+                }
+                newlineIndex = buffer.indexOf("\n");
+              }
+            }
+
+            const trimmed = buffer.trim();
+            if (!stop && trimmed) {
+              try {
+                stop = handlePayload(JSON.parse(trimmed)) || stop;
+              } catch {
+                // Ignore malformed tail data
+              }
+            }
           } catch (error) {
+            hasError = true;
             setSpeakingStatus(error.message || "Failed to fetch feedback.");
+            setSpeakingFeedback(null);
+          } finally {
+            if (reader) {
+              try {
+                reader.releaseLock();
+              } catch {
+                // ignored
+              }
+            }
+          }
+
+          if (hasError) {
+            setSpeakingFeedback(null);
+            setSpeakingSubmitting(false);
+            return;
+          }
+
+          setSpeakingFeedback((prev) => ({
+            ...(prev ?? createSpeakingBase()),
+            done: true,
+          }));
+
+          const finalFeedbackText = feedbackMarkdownBuffer.trim();
+          if (!finalFeedbackText) {
+            setSpeakingStatus("Feedback ready.");
+            setSpeakingSubmitting(false);
+            return;
+          }
+
+          setSpeakingStatus("Feedback ready. Generating improvements...");
+
+          const improvementFormData = new FormData();
+          improvementFormData.append("guidance_text", speakingQuestionText);
+          if (questionAudio) {
+            improvementFormData.append("prompt_audio", questionAudio);
+          }
+          improvementFormData.append("response_audio", answerAudio);
+          improvementFormData.append("feedback_text", finalFeedbackText);
+          improvementFormData.append("model_choice", speakingModel);
+
+          try {
+            const response = await fetch("/speaking-improvements", {
+              method: "POST",
+              body: improvementFormData,
+            });
+
+            if (!response.ok) {
+              const errorBody = await response.json().catch(() => ({}));
+              const detail = errorBody.detail || "Unexpected server error.";
+              throw new Error(detail);
+            }
+
+            const improvementPayload = await response.json();
+            const improvementsMarkdown = improvementPayload.improvements_markdown || "";
+            const hasImprovements = Boolean(improvementsMarkdown.trim());
+
+            setSpeakingFeedback((prev) => ({
+              ...(prev ?? createSpeakingBase()),
+              improvementsMarkdown,
+              improvementsReady: hasImprovements,
+              done: true,
+            }));
+
+            if (hasImprovements) {
+              setSpeakingStatus("Feedback ready. Improved versions available.");
+            } else {
+              setSpeakingStatus("Feedback ready.");
+            }
+            setSpeakingImprovementsVisible(false);
+          } catch (error) {
+            setSpeakingFeedback((prev) => ({
+              ...(prev ?? createSpeakingBase()),
+              done: true,
+            }));
+            setSpeakingStatus(
+              `Feedback ready. Failed to generate improvements: ${error.message || "Unknown error."}`
+            );
           } finally {
             setSpeakingSubmitting(false);
           }
@@ -433,9 +672,23 @@
           formData.append("answer_text", writingAnswerText);
           formData.append("model_choice", writingModel);
 
+          let reader;
+          let hasError = false;
+          let feedbackMarkdownBuffer = "";
+
+          const applyWritingUpdate = (updater) => {
+            setWritingFeedback((prev) => {
+              const base = prev ?? createWritingBase();
+              if (typeof updater === "function") {
+                return updater(base);
+              }
+              return { ...base, ...updater };
+            });
+          };
+
           try {
             setWritingSubmitting(true);
-            setWritingStatus("Submitting writing for feedback...");
+            setWritingStatus("Thinking...");
 
             const response = await fetch("/writing-feedback", {
               method: "POST",
@@ -448,35 +701,208 @@
               throw new Error(detail);
             }
 
-            const result = await response.json();
-            setWritingFeedback(result);
-            setWritingStatus("Feedback received.");
+            if (!response.body) {
+              throw new Error("Streaming is not supported in this browser.");
+            }
+
+            applyWritingUpdate(createWritingBase());
+
+            reader = response.body.getReader();
+            const decoder = new TextDecoder();
+            let buffer = "";
+            let stop = false;
+
+            const handlePayload = (payload) => {
+              if (!payload || !payload.type) return false;
+              switch (payload.type) {
+                case "thoughts":
+                  applyWritingUpdate((prev) => ({
+                    ...prev,
+                    thoughts: payload.text || "",
+                  }));
+                  return false;
+                case "answer": {
+                  const text = payload.text || "";
+                  feedbackMarkdownBuffer += text;
+                  applyWritingUpdate((prev) => ({
+                    ...prev,
+                    answerMarkdown: (prev.answerMarkdown || "") + text,
+                  }));
+                  setWritingStatus("Generating feedback...");
+                  return false;
+                }
+                case "error":
+                  hasError = true;
+                  setWritingStatus(payload.message || "Failed to fetch feedback.");
+                  return true;
+                case "done":
+                  return true;
+                default:
+                  return false;
+              }
+            };
+
+            while (!stop) {
+              const { value, done } = await reader.read();
+              if (done) {
+                buffer += decoder.decode();
+                break;
+              }
+              buffer += decoder.decode(value, { stream: true });
+
+              let newlineIndex = buffer.indexOf("\n");
+              while (newlineIndex !== -1) {
+                const line = buffer.slice(0, newlineIndex).trim();
+                buffer = buffer.slice(newlineIndex + 1);
+                if (line) {
+                  let payload;
+                  try {
+                    payload = JSON.parse(line);
+                  } catch {
+                    payload = null;
+                  }
+                  if (payload) {
+                    stop = handlePayload(payload) || stop;
+                    if (stop) break;
+                  }
+                }
+                newlineIndex = buffer.indexOf("\n");
+              }
+            }
+
+            const trimmed = buffer.trim();
+            if (!stop && trimmed) {
+              try {
+                stop = handlePayload(JSON.parse(trimmed)) || stop;
+              } catch {
+                // Ignore malformed tail data
+              }
+            }
           } catch (error) {
+            hasError = true;
             setWritingStatus(error.message || "Failed to fetch feedback.");
+            setWritingFeedback(null);
+          } finally {
+            if (reader) {
+              try {
+                reader.releaseLock();
+              } catch {
+                // ignored
+              }
+            }
+          }
+
+          if (hasError) {
+            setWritingFeedback(null);
+            setWritingSubmitting(false);
+            return;
+          }
+
+          setWritingFeedback((prev) => ({
+            ...(prev ?? createWritingBase()),
+            done: true,
+          }));
+
+          const finalFeedbackText = feedbackMarkdownBuffer.trim();
+          if (!finalFeedbackText) {
+            setWritingStatus("Feedback ready.");
+            setWritingSubmitting(false);
+            return;
+          }
+
+          setWritingStatus("Feedback ready. Generating improvements...");
+
+          const improvementFormData = new FormData();
+          improvementFormData.append("question_text", writingQuestionText);
+          improvementFormData.append("answer_text", writingAnswerText);
+          improvementFormData.append("feedback_text", finalFeedbackText);
+          improvementFormData.append("model_choice", writingModel);
+
+          try {
+            const response = await fetch("/writing-improvements", {
+              method: "POST",
+              body: improvementFormData,
+            });
+
+            if (!response.ok) {
+              const errorBody = await response.json().catch(() => ({}));
+              const detail = errorBody.detail || "Unexpected server error.";
+              throw new Error(detail);
+            }
+
+            const improvementPayload = await response.json();
+            const improvementsMarkdown = improvementPayload.improvements_markdown || "";
+            const hasImprovements = Boolean(improvementsMarkdown.trim());
+
+            setWritingFeedback((prev) => ({
+              ...(prev ?? createWritingBase()),
+              improvementsMarkdown,
+              improvementsReady: hasImprovements,
+              done: true,
+            }));
+
+            if (hasImprovements) {
+              setWritingStatus("Feedback ready. Improved versions available.");
+            } else {
+              setWritingStatus("Feedback ready.");
+            }
+            setWritingImprovementsVisible(false);
+          } catch (error) {
+            setWritingFeedback((prev) => ({
+              ...(prev ?? createWritingBase()),
+              done: true,
+            }));
+            setWritingStatus(
+              `Feedback ready. Failed to generate improvements: ${error.message || "Unknown error."}`
+            );
           } finally {
             setWritingSubmitting(false);
           }
         };
 
         const speakingFeedbackHtml = useMemo(() => {
-          if (!speakingFeedback || !speakingFeedback.feedback) return "";
+          const markdown = speakingFeedback?.answerMarkdown;
+          if (!markdown) return "";
           try {
-            const raw = window.marked.parse(speakingFeedback.feedback);
+            const raw = window.marked.parse(markdown);
             return window.DOMPurify.sanitize(raw);
           } catch (e) {
-            return window.DOMPurify.sanitize(String(speakingFeedback.feedback));
+            return window.DOMPurify.sanitize(String(markdown));
           }
-        }, [speakingFeedback]);
+        }, [speakingFeedback?.answerMarkdown]);
+
+        const speakingImprovementsHtml = useMemo(() => {
+          const markdown = speakingFeedback?.improvementsMarkdown;
+          if (!markdown) return "";
+          try {
+            const raw = window.marked.parse(markdown);
+            return window.DOMPurify.sanitize(raw);
+          } catch (e) {
+            return window.DOMPurify.sanitize(String(markdown));
+          }
+        }, [speakingFeedback?.improvementsMarkdown]);
 
         const writingFeedbackHtml = useMemo(() => {
-          if (!writingFeedback || !writingFeedback.feedback) return "";
+          const markdown = writingFeedback?.answerMarkdown;
+          if (!markdown) return "";
           try {
-            const raw = window.marked.parse(writingFeedback.feedback);
+            const raw = window.marked.parse(markdown);
             return window.DOMPurify.sanitize(raw);
           } catch (e) {
-            return window.DOMPurify.sanitize(String(writingFeedback.feedback));
+            return window.DOMPurify.sanitize(String(markdown));
           }
-        }, [writingFeedback]);
+        }, [writingFeedback?.answerMarkdown]);
+
+        const writingImprovementsHtml = useMemo(() => {
+          const markdown = writingFeedback?.improvementsMarkdown;
+          if (!markdown) return "";
+          try {
+            const raw = window.marked.parse(markdown);
+            return window.DOMPurify.sanitize(raw);
+          } catch (e) {
+            return window.DOMPurify.sanitize(String(markdown));
+          }
+        }, [writingFeedback?.improvementsMarkdown]);
 
         const renderSpeakingPanel = () => (
           <article className="tool-panel">
@@ -516,7 +942,7 @@
 
               <div className="form-grid two-column">
                 <label className="file-input">
-                  <span className="label-heading">Question Audio (optional)</span>
+                  <span className="label-heading">Prompt Audio (optional)</span>
                   <input
                     type="file"
                     accept="audio/*"
@@ -530,7 +956,7 @@
                 </label>
 
                 <label className="file-input">
-                  <span className="label-heading">Your Answer Audio</span>
+                  <span className="label-heading">Your Response Audio</span>
                   <input
                     type="file"
                     accept="audio/*"
@@ -555,10 +981,35 @@
             {speakingFeedback && (
               <section>
                 <h3>Feedback</h3>
+                {speakingFeedback.thoughts && (
+                  <details className="thoughts-box">
+                    <summary>Show model thinking</summary>
+                    <pre>{speakingFeedback.thoughts}</pre>
+                  </details>
+                )}
                 <div className="feedback-box" dangerouslySetInnerHTML={{ __html: speakingFeedbackHtml }} />
-                <p>
-                  <strong>Clips processed:</strong> {speakingFeedback.clips_received}
-                </p>
+                {speakingFeedback.clipsReceived != null && (
+                  <p>
+                    <strong>Clips processed:</strong> {speakingFeedback.clipsReceived}
+                  </p>
+                )}
+                {speakingFeedback.improvementsReady && (
+                  <div>
+                    <button
+                      type="button"
+                      className="secondary"
+                      onClick={() => setSpeakingImprovementsVisible((prev) => !prev)}
+                    >
+                      {speakingImprovementsVisible ? "Hide improved versions" : "View improved versions"}
+                    </button>
+                    {speakingImprovementsVisible && (
+                      <div>
+                        <h3>Improved Responses</h3>
+                        <div className="feedback-box" dangerouslySetInnerHTML={{ __html: speakingImprovementsHtml }} />
+                      </div>
+                    )}
+                  </div>
+                )}
               </section>
             )}
           </article>
@@ -624,7 +1075,30 @@
             {writingFeedback && (
               <section>
                 <h3>Feedback</h3>
+                {writingFeedback.thoughts && (
+                  <details className="thoughts-box">
+                    <summary>Show model thinking</summary>
+                    <pre>{writingFeedback.thoughts}</pre>
+                  </details>
+                )}
                 <div className="feedback-box" dangerouslySetInnerHTML={{ __html: writingFeedbackHtml }} />
+                {writingFeedback.improvementsReady && (
+                  <div>
+                    <button
+                      type="button"
+                      className="secondary"
+                      onClick={() => setWritingImprovementsVisible((prev) => !prev)}
+                    >
+                      {writingImprovementsVisible ? "Hide improved versions" : "View improved versions"}
+                    </button>
+                    {writingImprovementsVisible && (
+                      <div>
+                        <h3>Improved Essays</h3>
+                        <div className="feedback-box" dangerouslySetInnerHTML={{ __html: writingImprovementsHtml }} />
+                      </div>
+                    )}
+                  </div>
+                )}
               </section>
             )}
           </article>
