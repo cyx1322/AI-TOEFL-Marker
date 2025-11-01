@@ -6,6 +6,7 @@ from typing import List, Tuple
 from fastapi import FastAPI, File, Form, HTTPException, UploadFile
 from fastapi.responses import StreamingResponse
 from starlette import status
+from fastapi.staticfiles import StaticFiles
 
 from gemini_utils import (
     generate_audio_response,
@@ -415,3 +416,6 @@ def _streaming_response(generator):
 
 def _ndjson(payload: dict) -> bytes:
     return (json.dumps(payload, ensure_ascii=False) + "\n").encode("utf-8")
+
+# Serve frontend (index.html) for all other requests
+app.mount("/", StaticFiles(directory="frontend", html=True), name="frontend")
