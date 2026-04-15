@@ -8,7 +8,7 @@ from fastapi.responses import StreamingResponse
 from starlette import status
 from fastapi.staticfiles import StaticFiles
 
-from gemini_utils import (
+from backend.app.gemini_utils import (
     generate_audio_response,
     generate_text_response,
     stream_audio_understanding,
@@ -19,7 +19,6 @@ logger = logging.getLogger(__name__)
 
 app = FastAPI()
 
-ALLOWED_MODELS = {"gemini-2.5-flash", "gemini-2.5-pro"}
 
 _BASE_DIR = Path(__file__).resolve().parent
 

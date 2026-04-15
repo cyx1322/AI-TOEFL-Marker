@@ -1,12 +1,15 @@
 import logging
 import os
+import json
 
 from dotenv import load_dotenv
 from google import genai
 from google.genai import types
+from fastapi.responses import StreamingResponse
 
 logger = logging.getLogger(__name__)
 
+ALLOWED_MODELS = {"gemini-2.5-flash", "gemini-2.5-pro"}
 
 def _load_client() -> genai.Client:
     """Load Gemini API client with basic error handling."""
@@ -215,3 +218,15 @@ def generate_text_response(
             include_thoughts=include_thoughts,
         )
     )
+
+NDJSON_MEDIA_TYPE = "application/x-ndjson"
+
+def streaming_response(generator):
+    headers = {
+        "X-Accel-Buffering": "no",
+        "Cache-Control": "no-cache",
+    }
+    return StreamingResponse(generator, media_type=NDJSON_MEDIA_TYPE, headers=headers)
+
+def ndjson(payload: dict) -> bytes:
+    return (json.dumps(payload, ensure_ascii=False) + "\n").encode("utf-8")
